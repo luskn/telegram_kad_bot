@@ -51,10 +51,14 @@ def checkText(text):
         """
         wcommand_count = 0
     elif text.startswith('/get_by_cn'):
-        cn = text.split(' ')[-1]
-        new_text = get_by_cn(cn)
-        # new_text = """КН {}""".format(cn)
-        wcommand_count = 0
+        try:
+            cn = text.split(' ')[-1]
+            if pat_cn.match(cn):
+                new_text = get_by_cn(cn)
+            else:
+                new_text = "Не введен кадастровый номер"
+        except IndexError:
+            new_text = "Не введен кадастровый номер"
     elif pat_cn.match(text):
         new_text = get_by_cn(text)
     else:
@@ -86,18 +90,19 @@ def getfromjson(elem, args=None):
 
 def getjson(cn, obj_type):
     stime = time.time()
-    uri = "http://pkk5.rosreestr.ru/api/features/{}/{}".format(obj_type, cn)
+    uri = "https://pkk5.rosreestr.ru/api/features/{}/{}".format(obj_type, cn)
     try:
         uResponse = requests.get(uri)
         print('get uri: ', time.time() - stime)
+        jResponse = json.loads(uResponse.text)
     except requests.ConnectionError as e:
         print('ERROR: ', str(e))
         getjson(cn, obj_type)
         # return "Connecton error"
-    jResponse = json.loads(uResponse.text)
     # pprint(['jResponse: ', jResponse])
-    print('getjson: ', time.time() - stime)
-    return jResponse
+    else:
+        logging.debug('getjson: ', time.time() - stime)
+        return jResponse
 
 
 def getKI(data):
@@ -122,7 +127,7 @@ def getKI(data):
     except:
         raise
     finally:
-        print('getKI: ', time.time() - stime)
+        logging.debug('getKI: ', time.time() - stime)
         return KI
 
 
@@ -160,7 +165,7 @@ def formatRezZU(rawtext):
                date_change=nvl(getfromjson(rawtext, ("feature", "attrs", "cad_record_date")), '-')
                # Дата изменения св-ний
                )
-    print('formatRezZU: ', time.time() - stime)
+    logging.debug('formatRezZU: ', time.time() - stime)
     return rezText
 
 
@@ -201,7 +206,7 @@ def formatRezOKS(rawtext):
                   # относящиеся только к окс
                   purpose=nvl(getfromjson(rawtext, ("feature", "attrs", "purpose")), '-')
               )
-    print('formatRezOKS: ', time.time() - stime)
+    logging.debug('formatRezOKS: ', time.time() - stime)
     return rezText
 
 
@@ -224,11 +229,12 @@ def get_by_cn(cn):
                 rez = formatRezOKS(jsontext)
             else:
                 rez = "По кадастровому номеру *" + cn + "* объект не найден."
+        logging.debug('get_by_cn: ', time.time() - stime)
+        return rez
     except TypeError:
         print('error', jsontext, type(jsontext))
     # pprint(rez)
-    print('get_by_cn: ', time.time() - stime)
-    return rez
+    
 
 
 def handle(msg):
@@ -241,7 +247,7 @@ def handle(msg):
         # print('text: ',text)
         bot.sendMessage(chat_id, text, parse_mode='Markdown')
     # return "OK"
-    print('handle: ', time.time() - stime)
+    logging.debug('handle: ', time.time() - stime)
     # pprint(msg)
 
 
@@ -281,7 +287,7 @@ def mainChar(data):
             year_built=nvl(attrs['year_built'], '-'),
             year_used=nvl(attrs['year_used'], '-')
         )
-    print('mainChar: ', time.time() - stime)
+    logging.debug('mainChar: ', time.time() - stime)
     return mchar
 
 
@@ -298,11 +304,9 @@ def prepareCN(cn):
     """
     stime = time.time()
     cn_splited = cn.split(':')
-    cn_splited = [x.lstrip('0') for x in cn_splited]
-    if not cn_splited[2]:
-        cn_splited[2] = '0'
+    cn_splited = [nvl(x.lstrip('0'), '0') for x in cn_splited]
     cn_prepared = ':'.join(cn_splited)
-    print('prepareCN: ', time.time() - stime)
+    logging.debug('prepareCN: ', time.time() - stime)
     return cn_prepared
 
         
